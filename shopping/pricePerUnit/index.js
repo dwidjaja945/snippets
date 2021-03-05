@@ -59,11 +59,11 @@ var checkForFlOz = units => Object.keys(units).some(unit => unit === FL_OZ);
 var convertUnits = (unitGroups, from, to, conversionFactor) => {
   const array = unitGroups[from];
   if (unitGroups[to] === undefined) unitGroups[to] = [];
-  unitGroups[to].push(...array.map(oz => {
+  array.forEach(oz => {
     oz.price = oz.price * conversionFactor;
     oz.unit = to;
-    return oz;
-  }));
+    unitGroups[to].push(oz);
+  })
   delete unitGroups[from];
 };
 
