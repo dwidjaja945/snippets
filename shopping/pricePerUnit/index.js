@@ -10,7 +10,7 @@ var PK = 'PK';
 
 // units
 // (oz)|(lb)|(ct)|(ounce)|(gal)|(fl ?oz)
-var UNIT_REGEX = / ?(oz)|(lb)|(ct)|(ounce)|(gal)|(fl ?oz)/gi;
+var UNIT_REGEX = ' ?((oz)|(lb)|(ct)|(ounce)|(gal)|(fl ?oz))';
 var QUANTITY_REGEX = ' ?(pk)';
 var MULTIPLE_PER_REGEX = '[0-9]* ?(\/|x) ?[0-9]*';
 
@@ -49,13 +49,11 @@ var getUnit = unit => {
       return LB;
     default:
       return unit;
-      //             throw new Error(`Unhandled unit: ${unit}`);
-      break;
+    // throw new Error(`Unhandled unit: ${unit}`);
   };
 };
 
-var checkForOz = units => Object.keys(units).some(unit => unit === OZ);
-var checkForFlOz = units => Object.keys(units).some(unit => unit === FL_OZ);
+var checkFor = (unitGroups, unit) => Object.keys(unitGroups).some(group => group === unit)
 
 var convertUnits = (unitGroups, from, to, conversionFactor) => {
   const array = unitGroups[from];
@@ -69,15 +67,15 @@ var convertUnits = (unitGroups, from, to, conversionFactor) => {
 };
 
 var handleConversions = unitGroups => {
-  var hasOz = checkForOz(unitGroups);
-  var hasFlOz = checkForFlOz(unitGroups);
+  var hasOz = checkFor(unitGroups, OZ);
+  var hasFlOz = checkFor(unitGroups, FL_OZ);
   if (hasOz) {
-    if (confirm('convert oz to lb?')) {
+    if (confirm('Convert oz to lb?')) {
       convertUnits(unitGroups, OZ, LB, 16);
     };
   }
   if (hasFlOz) {
-    if (confirm('Conver fl oz to gallons?')) {
+    if (confirm('Convert fl oz to gallons?')) {
       convertUnits(unitGroups, FL_OZ, GAL, 128);
     }
   }
@@ -104,6 +102,8 @@ var parseQuantity = string => {
 
 var runSearch = () => {
   var cards = document.querySelectorAll(selector);
+  var matchRegex = new RegExp(`[0-9.]+${UNIT_REGEX}`, 'gi');
+  var unitRegex = new RegExp(UNIT_REGEX, 'gi');
   var quantifierRegex = new RegExp(`[0-9.]+${QUANTITY_REGEX}`, 'i');
   var multiplePerRegex = new RegExp(MULTIPLE_PER_REGEX, 'gm');
 
@@ -114,10 +114,10 @@ var runSearch = () => {
     const linkEl = card.querySelector('a');
 
     // x[unit]
-    const match = text.match(/[0-9.]+ ?((oz)|(lb)|(ct)|(ounce)|(gal)|(fl oz))/gi);
+    const match = text.match(matchRegex);
     // xx.xx
-    const textMatch = text.match(/\$[0-9]+[.]?[0-9]{2}/m);
-    if (!match || !textMatch) return;
+    const dollarMatch = text.match(/\$[0-9]+[.]?[0-9]{2}/m);
+    if (!match || !dollarMatch) return;
     const { 0: _amount, index: amountIdx } = match;
     // x[quantifier]
     const quantifierMatch = text.match(quantifierRegex);
@@ -131,16 +131,18 @@ var runSearch = () => {
       quantityUnit = _quantityUnit;
     } else if (multiplePerMatch) {
       let quantityString = multiplePerMatch.find(item => /[0-9]/.test(item));
-      quantityString = quantityString.replace(/ /gm, '');
-      quantity = parseQuantity(quantityString);
+      if (quantityString) {
+        quantityString = quantityString.replace(/ /gm, '');
+        quantity = parseQuantity(quantityString);
+      };
     };
     // [unit]
-    let [unit] = _amount.match(UNIT_REGEX);
-    unit = unit.replace(' ', '').toLowerCase();
+    let [unit] = _amount.match(unitRegex);
+    unit = unit.replace(/ /g, '').toLowerCase();
     // xx.xx
-    const amount = Number(_amount.replace(UNIT_REGEX, ''));
+    const amount = Number(_amount.replace(unitRegex, ''));
 
-    const [_price] = textMatch;
+    const [_price] = dollarMatch;
     const price = Number(_price.replace('$', ''));
     const pricePerUnit = (price / (amount * quantity)).toFixed(3);
     const originalName = text.slice(0, amountIdx);
