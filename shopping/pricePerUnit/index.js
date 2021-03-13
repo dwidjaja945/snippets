@@ -12,6 +12,7 @@ var PK = 'PK';
 // (oz)|(lb)|(ct)|(ounce)|(gal)|(fl ?oz)
 var UNIT_REGEX = / ?(oz)|(lb)|(ct)|(ounce)|(gal)|(fl ?oz)/gi;
 var QUANTITY_REGEX = ' ?(pk)';
+var MULTIPLE_PER_REGEX = '[0-9]* ?(\/|x) ?[0-9]*';
 
 var AMAZON_SELECTOR = '[data-component-type="s-search-result"]';
 var TARGET_SELECTOR = '[data-test="productCardBody"]';
@@ -82,9 +83,29 @@ var handleConversions = unitGroups => {
   }
 };
 
+var parseQuantity = string => {
+  string = string.replace(/ /gm, '');
+  let num1 = '';
+  let num2 = '';
+  let buildNum1 = true;
+  for (let i = 0; i < string.length; i++) {
+    if (!isNaN(string[i])) {
+      if (buildNum1) {
+        num1 += string[i];
+      } else {
+        num2 += string[i];
+      };
+      continue;
+    }
+    buildNum1 = false;
+  };
+  return +num1 * num2;
+};
+
 var runSearch = () => {
   var cards = document.querySelectorAll(selector);
   var quantifierRegex = new RegExp(`[0-9.]+${QUANTITY_REGEX}`, 'i');
+  var multiplePerRegex = new RegExp(MULTIPLE_PER_REGEX, 'gm');
 
   var table = {};
   cards.forEach(card => {
@@ -100,12 +121,18 @@ var runSearch = () => {
     const { 0: _amount, index: amountIdx } = match;
     // x[quantifier]
     const quantifierMatch = text.match(quantifierRegex);
+    // x/y[unit] ex. 24/12 oz, 24 x 12 fl oz
+    const multiplePerMatch = text.match(multiplePerRegex);
     let quantity = 1;
     let quantityUnit = 'unit';
     if (quantifierMatch) {
       const [amount, _quantityUnit] = quantifierMatch;
       quantity = Number(amount.replace(_quantityUnit, ''));
       quantityUnit = _quantityUnit;
+    } else if (multiplePerMatch) {
+      let quantityString = multiplePerMatch.find(item => /[0-9]/.test(item));
+      quantityString = quantityString.replace(/ /gm, '');
+      quantity = parseQuantity(quantityString);
     };
     // [unit]
     let [unit] = _amount.match(UNIT_REGEX);
